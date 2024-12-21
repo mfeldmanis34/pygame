@@ -1,0 +1,447 @@
+# main.py
+
+import pygame
+import pygame_gui
+import json
+import os
+
+pygame.init()
+
+# Ekrāna izmēri
+WINDOW_WIDTH = 900
+WINDOW_HEIGHT = 800
+
+# Izveidot logu
+window_surface = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+pygame.display.set_caption('Basketbola metienu treniņš')
+
+# GUI menedžeris
+manager = pygame_gui.UIManager((WINDOW_WIDTH, WINDOW_HEIGHT))
+
+# Kluka iestatījumi
+clock = pygame.time.Clock()
+is_running = True
+
+# Datu fails
+DATA_FILE = 'data/shots_data.json'
+
+# Iniciēt datus, ja fails neeksistē
+if not os.path.exists('data'):
+    os.makedirs('data')
+
+if not os.path.exists(DATA_FILE):
+    initial_data = {
+        "Pustālie metieni": {"makes": 0, "shots": 0, "value": 0},
+        "Pustālie metieni pēc dribla": {"makes": 0, "shots": 0, "value": 0},
+        "Trīspunktu metieni": {"makes": 0, "shots": 0, "value": 0},
+        "Trīspunktu metieni pēc dribla": {"makes": 0, "shots": 0, "value": 0},
+        "Soda metieni": {"makes": 0, "shots": 0, "value": 0},
+        "currentStep": 0
+    }
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(initial_data, f, ensure_ascii=False, indent=4)
+
+# Funkcija, lai ielādētu datus
+def load_data():
+    with open(DATA_FILE, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+# Funkcija, lai saglabātu datus
+def save_data(data):
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+# Ielādēt sākotnējos datus
+shot_data = load_data()
+
+# Metienu sekvence
+shooting_sequence = [
+    {"shotType": "Pustālie metieni", "position": 1},
+    {"shotType": "Pustālie metieni", "position": 2},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Pustālie metieni", "position": 3},
+    {"shotType": "Pustālie metieni", "position": 4},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Pustālie metieni", "position": 5},
+    {"shotType": "Pustālie metieni pēc dribla", "position": 1},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Pustālie metieni pēc dribla", "position": 2},
+    {"shotType": "Pustālie metieni pēc dribla", "position": 3},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Pustālie metieni pēc dribla", "position": 4},
+    {"shotType": "Pustālie metieni pēc dribla", "position": 5},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Trīspunktu metieni", "position": 1},
+    {"shotType": "Trīspunktu metieni", "position": 2},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Trīspunktu metieni", "position": 3},
+    {"shotType": "Trīspunktu metieni", "position": 4},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Trīspunktu metieni", "position": 5},
+    {"shotType": "Trīspunktu metieni pēc dribla", "position": 1},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Trīspunktu metieni pēc dribla", "position": 2},
+    {"shotType": "Trīspunktu metieni pēc dribla", "position": 3},
+    {"shotType": "Soda metieni", "position": None},
+    {"shotType": "Trīspunktu metieni pēc dribla", "position": 4},
+    {"shotType": "Trīspunktu metieni pēc dribla", "position": 5},
+    {"shotType": "Soda metieni", "position": None}
+    # Turpiniet pievienot sekvenci pēc vajadzības
+]
+
+# Neutral makes mapping
+neutral_makes = {
+    "Pustālie metieni": 8,
+    "Pustālie metieni pēc dribla": 7,
+    "Trīspunktu metieni": 7,
+    "Trīspunktu metieni pēc dribla": 6,
+    "Soda metieni": 8
+}
+
+# Metiena veidi ar attēliem
+shot_images = {
+    "Pustālie metieni": {
+        1: "images/67656dc437faab52cff04fe3.png",
+        2: "images/67656dc437faab958ef04fe4.png",
+        3: "images/67656dc4fb63bc185d68b30c.png",
+        4: "images/67656dc4e3599e04deb3c12e.png",
+        5: "images/67656dc43209f6039a4594ee.png"
+    },
+    "Pustālie metieni pēc dribla": {
+        1: "images/67656dc4a234203b13c16912.png",
+        2: "images/67656dc4e3599efc06b3c12f.png",
+        3: "images/67656dc44693516f225110a9.png",
+        4: "images/67656dc4a23420f5bec16913.png",
+        5: "images/67656dc5feefac3bac579ef1.png"
+    },
+    "Trīspunktu metieni": {
+        1: "images/67656dc4e3599e1c87b3c130.png",
+        2: "images/67656dc5feefacefce579ef0.png",
+        3: "images/67656dc47e62110704adb6ee.png",
+        4: "images/67656dc4a234202792c16914.png",
+        5: "images/67656dc437faab040bf04fe2.png"
+    },
+    "Trīspunktu metieni pēc dribla": {
+        1: "images/67656dc4feefac12e7579eef.png",
+        2: "images/67656dc446935159d55110a7.png",
+        3: "images/67656dc4469351053e5110a8.png",
+        4: "images/67656dc44693516bdf5110a6.png",
+        5: "images/67656dc47e6211477fadb6ed.png"
+    },
+    "Soda metieni": {
+        1: "images/67656dc4fb63bc9c6c68b30d.png"
+    }
+}
+
+# Pašreizējais posms
+current_step = shot_data.get("currentStep", 0)
+
+# Funkcija, lai aprēķinātu vērtību
+def calculate_value(shot_type, makes):
+    neutral = neutral_makes.get(shot_type, 0)
+    return makes - neutral
+
+# Funkcija, lai atjauninātu kopsavilkumu
+def update_summary():
+    total_makes = sum([shot_data[shot]["makes"] for shot in shot_data if shot != "currentStep"])
+    total_shots = sum([shot_data[shot]["shots"] for shot in shot_data if shot != "currentStep"])
+    total_value = sum([shot_data[shot]["value"] for shot in shot_data if shot != "currentStep"])
+    total_misses = total_shots - total_makes
+
+    summary_text = f"Cik metienus es iemetu: {total_makes}\nCik metienus es aizmetu garām: {total_misses}\nKopējā Vērtība: {'+' if total_value >=0 else ''}{total_value}"
+    summary_label.set_text(summary_text)
+    
+    # Atjaunināt tabulu
+    table_data = []
+    for shot in ["Pustālie metieni", "Pustālie metieni pēc dribla", "Trīspunktu metieni", "Trīspunktu metieni pēc dribla", "Soda metieni"]:
+        makes = shot_data[shot]["makes"]
+        misses = shot_data[shot]["shots"] - makes
+        value = shot_data[shot]["value"]
+        table_data.append(f"{shot} | {makes} | {misses} | {'+' if value >=0 else ''}{value}")
+    table.set_item_list(["Metiena Veids | Iemestie | Aizmestie garām | Vērtība"] + table_data)
+
+# Funkcija, lai atjauninātu metiena veidu formu un attēlu
+def update_form():
+    global current_step
+    if current_step >= len(shooting_sequence):
+        display_completion()
+        return
+    step = shooting_sequence[current_step]
+    shot_type = step["shotType"]
+    position = step["position"]
+
+    # Atjaunināt metiena veida tekstu
+    shot_type_display.set_text(shot_type)
+
+    # Atjaunināt attēlu
+    if shot_type in shot_images:
+        if shot_type == "Soda metieni":
+            img_path = shot_images[shot_type].get(1)
+        else:
+            img_path = shot_images[shot_type].get(position)
+        if img_path and os.path.exists(img_path):
+            image_surface = pygame.image.load(img_path).convert_alpha()
+            image_surface = pygame.transform.scale(image_surface, (200, 200))
+            shot_image.set_image(image_surface)
+            shot_image.show()
+        else:
+            shot_image.hide()
+    else:
+        shot_image.hide()
+
+# Funkcija, lai parādītu pabeigšanas ziņu
+def display_completion():
+    completion_label.set_text("Treniņš ir Pabeigts! Lūdzu, atjaunojiet programmu, lai sāktu jaunu ciklu.")
+    completion_label.show()
+    shot_form_panel.hide()
+
+# Izveidot GUI elementus
+
+# "Sākt treniņu" poga
+start_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((350, 50), (200, 50)),
+                                           text='Sākt treniņu',
+                                           manager=manager)
+
+# Instrukciju panelis (slēgts sākumā)
+instructions_panel = pygame_gui.elements.UIPanel(relative_rect=pygame.Rect((50, 120), (800, 150)),
+                                                starting_layer_height=1,
+                                                manager=manager,
+                                                visible=False)
+
+instructions_text = pygame_gui.elements.UITextBox(html_text="""
+<strong>Kā notiks treniņš?</strong><br>
+1. Katra metiena veidam (Pustālie metieni, Pustālie metieni pēc dribla, Trīspunktu metieni, Trīspunktu metieni pēc dribla) ir jāizmet 5 pozīcijas, katrā pa 10 metieniem.<br>
+2. Pēc katrām divām metienu pozīcijām, būs jāizpilda 10 Soda metieni.<br>
+3. Kā tiks ievadīti iemestie metieni, programma automātiski parādīs, kāds metiens tev ir jāmet nākamais.<br>
+4. Pēc pēdējās metienu pozīcijas ("Trīspunktu metieni pēc dribla") parādīsies ziņa, ka treniņš ir pabeigts.
+""",
+                                                  relative_rect=pygame.Rect((10, 10), (780, 130)),
+                                                  manager=manager,
+                                                  container=instructions_panel)
+
+# Metiena forma (slēgta sākumā)
+shot_form_panel = pygame_gui.elements.UIPanel(relative_rect=pygame.Rect((50, 280), (800, 250)),
+                                              starting_layer_height=1,
+                                              manager=manager,
+                                              visible=False)
+
+# Metiena veida etikete
+shot_type_label = pygame_gui.elements.UILabel(relative_rect=pygame.Rect((10, 10), (150, 30)),
+                                             text='Metiena veids:',
+                                             manager=manager,
+                                             container=shot_form_panel)
+
+# Metiena veida tekstu lodziņš (neaktīvs)
+shot_type_display = pygame_gui.elements.UITextBox(html_text="",
+                                                   relative_rect=pygame.Rect((170, 10), (200, 30)),
+                                                   manager=manager,
+                                                   container=shot_form_panel)
+
+# Metiena attēls
+shot_image = pygame_gui.elements.UIImage(relative_rect=pygame.Rect((10, 50), (200, 200)),
+                                         image_surface=None,
+                                         manager=manager,
+                                         container=shot_form_panel,
+                                         visible=False)
+
+# Iemesto metienu skaita etikete
+makes_label = pygame_gui.elements.UILabel(relative_rect=pygame.Rect((250, 10), (250, 30)),
+                                         text='Iemesto metienu skaits (0-10):',
+                                         manager=manager,
+                                         container=shot_form_panel)
+
+# Ievades lauks
+makes_input = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect((500, 10), (100, 30)),
+                                                  manager=manager,
+                                                  container=shot_form_panel)
+
+# "Iesniegt" poga
+submit_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((620, 10), (100, 30)),
+                                           text='Iesniegt',
+                                           manager=manager,
+                                           container=shot_form_panel)
+
+# Kopsavilkuma panelis
+summary_panel = pygame_gui.elements.UIPanel(relative_rect=pygame.Rect((50, 550), (800, 200)),
+                                           starting_layer_height=1,
+                                           manager=manager)
+
+# Kopsavilkuma teksts
+summary_label = pygame_gui.elements.UITextBox(html_text="Kopsavilkums:\nCik metienus es iemetu: 0\nCik metienus es aizmetu garām: 0\nKopējā Vērtība: 0",
+                                            relative_rect=pygame.Rect((10, 10), (300, 180)),
+                                            manager=manager,
+                                            container=summary_panel)
+
+# Tabula
+table = pygame_gui.elements.UISelectionList(relative_rect=pygame.Rect((320, 10), (470, 180)),
+                                            item_list=["Metiena Veids | Iemestie | Aizmestie garām | Vērtība"],
+                                            manager=manager,
+                                            container=summary_panel)
+
+# "Atiestatīt Datus" poga
+reset_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((700, 160), (80, 30)),
+                                           text='Atiestatīt Datus',
+                                           manager=manager,
+                                           container=summary_panel)
+
+# Pabeigšanas ziņa (slēgts sākumā)
+completion_label = pygame_gui.elements.UILabel(relative_rect=pygame.Rect((50, 760), (800, 30)),
+                                             text='Treniņš ir Pabeigts! Lūdzu, atjaunojiet programmu, lai sāktu jaunu ciklu.',
+                                             manager=manager,
+                                             visible=False)
+
+# Funkcija, lai atjauninātu metiena veida formu un attēlu
+def update_form():
+    global current_step
+    if current_step >= len(shooting_sequence):
+        display_completion()
+        return
+    step = shooting_sequence[current_step]
+    shot_type = step["shotType"]
+    position = step["position"]
+
+    # Atjaunināt metiena veida tekstu
+    shot_type_display.set_text(shot_type)
+
+    # Atjaunināt attēlu
+    if shot_type in shot_images:
+        if shot_type == "Soda metieni":
+            img_path = shot_images[shot_type].get(1)
+        else:
+            img_path = shot_images[shot_type].get(position)
+        if img_path and os.path.exists(img_path):
+            image_surface = pygame.image.load(img_path).convert_alpha()
+            image_surface = pygame.transform.scale(image_surface, (200, 200))
+            shot_image.set_image(image_surface)
+            shot_image.show()
+        else:
+            shot_image.hide()
+    else:
+        shot_image.hide()
+
+# Funkcija, lai parādītu pabeigšanas ziņu
+def display_completion():
+    completion_label.set_text("Treniņš ir Pabeigts! Lūdzu, atjaunojiet programmu, lai sāktu jaunu ciklu.")
+    completion_label.show()
+    shot_form_panel.hide()
+
+# Funkcija, lai atjauninātu kopsavilkumu
+def update_summary():
+    total_makes = sum([shot_data[shot]["makes"] for shot in shot_data if shot != "currentStep"])
+    total_shots = sum([shot_data[shot]["shots"] for shot in shot_data if shot != "currentStep"])
+    total_value = sum([shot_data[shot]["value"] for shot in shot_data if shot != "currentStep"])
+    total_misses = total_shots - total_makes
+
+    summary_text = f"Cik metienus es iemetu: {total_makes}\nCik metienus es aizmetu garām: {total_misses}\nKopējā Vērtība: {'+' if total_value >=0 else ''}{total_value}"
+    summary_label.set_text(summary_text)
+    
+    # Atjaunināt tabulu
+    table_data = []
+    for shot in ["Pustālie metieni", "Pustālie metieni pēc dribla", "Trīspunktu metieni", "Trīspunktu metieni pēc dribla", "Soda metieni"]:
+        makes = shot_data[shot]["makes"]
+        misses = shot_data[shot]["shots"] - makes
+        value = shot_data[shot]["value"]
+        table_data.append(f"{shot} | {makes} | {misses} | {'+' if value >=0 else ''}{value}")
+    table.set_item_list(["Metiena Veids | Iemestie | Aizmestie garām | Vērtība"] + table_data)
+
+# Funkcija, lai saglabātu datus
+def save_current_data():
+    shot_data["currentStep"] = current_step
+    save_data(shot_data)
+
+# Izveidot sākotnējo formu
+if shot_data["currentStep"] < len(shooting_sequence):
+    update_form()
+else:
+    display_completion()
+
+# Atjaunināt kopsavilkumu
+update_summary()
+
+# Galvenais cikls
+while is_running:
+    time_delta = clock.tick(60)/1000.0
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            is_running = False
+
+        # Pogas klikšķu apstrāde
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            if event.ui_element == start_button:
+                start_button.hide()
+                instructions_panel.show()
+            elif event.ui_element == submit_button and shot_form_panel.visible:
+                shot_type = shot_type_display.text.strip()
+                makes_str = makes_input.get_text().strip()
+                if makes_str.isdigit():
+                    makes = int(makes_str)
+                    if 0 <= makes <= 10:
+                        value = calculate_value(shot_type, makes)
+                        # Atjaunināt shot_data
+                        if shot_type in shot_data:
+                            shot_data[shot_type]["makes"] += makes
+                            shot_data[shot_type]["shots"] += 10  # Katrā posmā ir 10 metieni
+                            shot_data[shot_type]["value"] += value
+                        else:
+                            print("Nederīgs metiena veids:", shot_type)
+                        # Saglabāt datus
+                        save_current_data()
+                        # Atjaunināt kopsavilkumu
+                        update_summary()
+                        # Pāriet uz nākamo posmu
+                        current_step +=1
+                        if current_step >= len(shooting_sequence):
+                            display_completion()
+                        else:
+                            update_form()
+                        # Atiestatīt ievades laukumu
+                        makes_input.set_text("")
+                        # Izvadīt paziņojumu
+                        print(f"Ierakstīts {makes} veikti metieni priekš {shot_type}.\nVērtība iegūta: {'+' if value >=0 else ''}{value}")
+                    else:
+                        print("Nederīgs iemesto metienu skaits: jābūt no 0 līdz 10")
+                else:
+                    print("Nederīga ievade: jāievada skaitlis")
+            elif event.ui_element == reset_button:
+                # Parādīt apstiprinājuma logu
+                confirmation_dialog = pygame_gui.windows.UIConfirmationDialog(
+                    rect=pygame.Rect((WINDOW_WIDTH//2 - 150, WINDOW_HEIGHT//2 - 75), (300, 150)),
+                    manager=manager,
+                    window_title='Apstiprinājums',
+                    action_long_desc='Vai esat pārliecināts, ka vēlaties atiestatīt visus datus?',
+                    blocking=True
+                )
+
+        # Apstrādāt apstiprinājuma dialogu
+        if event.type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
+            if event.ui_element.window_title == 'Apstiprinājums':
+                # Atiestatīt datus
+                shot_data = {
+                    "Pustālie metieni": {"makes": 0, "shots": 0, "value": 0},
+                    "Pustālie metieni pēc dribla": {"makes": 0, "shots": 0, "value": 0},
+                    "Trīspunktu metieni": {"makes": 0, "shots": 0, "value": 0},
+                    "Trīspunktu metieni pēc dribla": {"makes": 0, "shots": 0, "value": 0},
+                    "Soda metieni": {"makes": 0, "shots": 0, "value": 0},
+                    "currentStep": 0
+                }
+                save_current_data()
+                # Atjaunināt GUI
+                update_summary()
+                shot_form_panel.show()
+                start_button.show()
+                instructions_panel.hide()
+                completion_label.hide()
+                current_step = 0
+                update_form()
+
+        manager.process_events(event)
+
+    manager.update(time_delta)
+
+    window_surface.fill((245, 245, 245))  # Fona krāsa
+
+    manager.draw_ui(window_surface)
+
+    pygame.display.update()
+
+pygame.quit()
